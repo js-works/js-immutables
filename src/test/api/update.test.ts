@@ -59,7 +59,7 @@ describe('update', () => {
   })
   
   it('should perform multiple updates properly', () => {
-    const result = update.multiple(state, select => [
+    const result = update(state).multiple(select => [
       select('login', 'username').set('John Doe'), // TODO
       select('login', 'isAdmin').map(it => !it), // TODO
     ])
@@ -76,7 +76,7 @@ describe('update', () => {
   })
   
   it('should perform updates imperative', () => {
-    const result = update.imperative(state, modify => {
+    const result = update(state).imperative(modify => {
       modify('login', 'username').set('John Doe'),
       modify('login', 'isAdmin').map(it => !it)
     })

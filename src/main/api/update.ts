@@ -1,20 +1,42 @@
 export default update
 
-function update<S extends State>(state: S): { path: Selector<S> }
+function update<S extends State>(state: S): Updater<S> 
 function update<S extends State, K extends keyof S>(state: S, key: K): ReturnType<Selector<S>>
 
-function update<S extends State>(state: S, key?: string) {
+function update<S extends State>(state: S, key?: string): any {
   return key
     ? update(state).path(key)
-    : { path: select(state) }
+    : new Updater(state)
 }
 
-update.multiple = <S extends State>(state: S, getUpdates: (select: Selector2<S>) => Update<S, any>[]): S => {
-  const
-    select = (...path: string[]) => new ObjectModifier2(state, path),
-    updates = getUpdates(select as any) // TODO
+class Updater<S extends State> {
+  private _state: S
 
-  return performUpdates(state, updates)
+  constructor(state: S) {
+    this._state = state
+  }
+
+  path(...path: any[]): ReturnType<Selector<S>> {
+    return (select as any)(this._state)(...path) // TODO 
+  }
+
+  multiple(getUpdates: (select: Selector2<S>) => Update<S, any>[]): S {
+    const
+      select = (...path: string[]) => new ObjectModifier2(this._state, path),
+      updates = getUpdates(select as any) // TODO
+
+    return performUpdates(this._state, updates)
+  }
+
+  imperative(gatherUpdates: (modify: Selector3<S>) => void): S { // TODO
+    const
+      updates: Update<S, any>[] = [],
+      modify = (...path: string[]) => new ObjectModifier3(this._state, path, (update: any) => updates.push(update)) // TODO
+   
+    gatherUpdates(modify as any) // TODO
+
+    return performUpdates(this._state, updates)
+  }
 }
 
 update.imperative = <S extends State>(state: S, gatherUpdates: (modify: Selector3<S>) => void): S => { // TODO
