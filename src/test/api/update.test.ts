@@ -59,7 +59,7 @@ describe('update', () => {
   })
   
   it('should perform multiple updates properly', () => {
-    const result = update(state).multiple(select => [
+    const result = update(state, select => [
       select('login', 'username').set('John Doe'), // TODO
       select('login', 'isAdmin').map(it => !it), // TODO
     ])
@@ -76,10 +76,10 @@ describe('update', () => {
   })
   
   it('should perform updates imperative', () => {
-    const result = update(state).imperative(modify => {
-      modify('login', 'username').set('John Doe'),
-      modify('login', 'isAdmin').map(it => !it)
-    })
+    const result = update(state, function* (select: any) {
+      yield select('login', 'username').set('John Doe'),
+      yield select('login', 'isAdmin').map((it: any) => !it)
+    } as any)
     
     expect(result)
       .to.eql({
