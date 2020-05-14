@@ -3,6 +3,7 @@ export default update
 function update<S extends State>(state: S): Updater<S> 
 function update<S extends State, K extends keyof S>(state: S, key: K): ReturnType<Selector<S>>
 function update<S extends State>(state: S, getUpdates: (select: Selector2<S>) => Update<S, any>[]): S 
+function update<S extends State>(state: S, generateUpdates: (select: Selector2<S>) => Generator<Update<S, any>>): S 
 
 function update<S extends State>(state: S, sndArg?: any): any {
   if (arguments.length > 1) {

@@ -75,11 +75,11 @@ describe('update', () => {
       })
   })
   
-  it('should perform updates imperative', () => {
-    const result = update(state, function* (select: any) {
+  it('should perform multiple updates by using a generator', () => {
+    const result = update(state, function* (select) {
       yield select('login', 'username').set('John Doe'),
-      yield select('login', 'isAdmin').map((it: any) => !it)
-    } as any)
+      yield select('login', 'isAdmin').map(it => !it)
+    })
     
     expect(result)
       .to.eql({
