@@ -5,51 +5,24 @@ function update<S extends State>(state: S, getUpdates: (select: UpdateSelector<S
 function update<S extends State>(state: S, generateUpdates: (select: UpdateSelector<S, S>) => Generator<Update<S, any>>): S 
 
 function update<S extends State>(state: S, sndArg?: any): any {
-  if (arguments.length > 1) {
-    if (typeof sndArg === 'function') {
-      const select = (...path: string[]) => {
-        let it: any = state
-
-        if (state) {
-          for (let i = 0; i < path.length; ++i) {
-            it = state[path[i]]
-
-            if (!it || typeof it !== 'object') {
-              it = null
-              break
-            }
-          }
-        }
-
-        return it === null
-          ? null
-          : Array.isArray(it)
-            ? new ArrayUpdaterImpl(state, path)
-            : new ObjectUpdaterImpl(state, path)
-      }
-
-      return performUpdates(state, Array.from(sndArg(select)))
-    } else {
-      return update(state)
+  if (typeof sndArg === 'function') {
+    const select = (...path: string[]) => {
+      return createHandler(state, path, ObjectUpdaterImpl, ArrayUpdaterImpl)
     }
+
+    return performUpdates(state, Array.from(sndArg(select)))
   }
 
-  if (Array.isArray(state)) {
-    return new ArrayModifierImpl(state, []) 
-  } else if (state && typeof state === 'object') {
-    return new ObjectModifierImpl(state, [])
-  }
-
-  return null
+  return createHandler(state, [], ObjectModifierImpl, ArrayModifierImpl)
 }
 
 // --- modification (types) ------------------------------------------
 
-type ModifierType<S extends State, B extends State, T> =
+type ModifierType<S extends State, B extends Obj, T> =
   IfNeverThenNull<T extends (infer V)[] ? ArrayModifier<S, B, V[]> : never
     | T extends Record<string, any> ? ObjectModifier<S, B, T> : never>
 
-type ModifySelector<S extends State, B extends State> = {
+type ModifySelector<S extends State, B extends Obj> = {
   <K1 extends keyof B>(k1: K1): ModifierType<S, B, B[K1]>,
   <K1 extends keyof B, K2 extends keyof B[K1]>(k1: K1, k2: K2): ModifierType<S, B, B[K1][K2]>,
   <K1 extends keyof B, K2 extends keyof B[K1], K3 extends keyof B[K1][K2]>(k1: K1, k2: K2, k3: K3): ModifierType<S, B, B[K1][K2][K3]>,
@@ -57,19 +30,20 @@ type ModifySelector<S extends State, B extends State> = {
   <K1 extends keyof B, K2 extends keyof B[K1], K3 extends keyof B[K1][K2], K4 extends keyof B[K1][K2][K3], K5 extends keyof B[K1][K2][K3][K4]>(k1: K1, k2: K2, k3: K3, k4: K4, k5: K5): ModifierType<S, B, B[K1][K2][K3][K4][K5]>,
 }
 
-type ObjectModifier<S extends State, B extends State, T extends Record<string, any>> = {
+type ObjectModifier<S extends State, B extends Obj, T extends Record<string, any>> = {
   path: ModifySelector<S, B>,
   set<K extends keyof T>(key: K, value: T[K]): S
   map<K extends keyof T>(key: K, mapper: (value: T[K]) => T[K]): S
 }
 
-type ArrayModifier<S extends State, B extends State, V> = {
+type ArrayModifier<S extends State, B extends Obj, V> = {
   path: ModifySelector<S, B>,
   push(item: V): S,
+  pop(): S,
   filter(pred: (item: V, idx: number) => boolean): S,
   remove(pred: (item: V, idx: number) => boolean): S,
-  removeFirst(pred?: (item: V, idx: number) => boolean): S,
-  removeLast(pred?: (item: V, idx: number) => boolean): S,
+  removeFirst(pred: (item: V, idx: number) => boolean): S,
+  removeLast(pred: (item: V, idx: number) => boolean): S,
   clear(): S
 }
 
@@ -97,7 +71,7 @@ class ObjectModifierImpl<S extends State, T extends Record<string, any>> {
   }
 }
 
-class ArrayModifierImpl<S extends State, B extends State, V> {
+class ArrayModifierImpl<S extends State, B extends Obj, V> {
   _state: S
   _path: string[]
 
@@ -114,6 +88,10 @@ class ArrayModifierImpl<S extends State, B extends State, V> {
     return performUpdate(this._state, this._path, ArrayOps.push(item))
   }
 
+  pop(item: V) {
+    return performUpdate(this._state, this._path, ArrayOps.pop())
+  }
+
   filter(pred: (item: V, idx: number) => boolean) {
     return performUpdate(this._state, this._path, ArrayOps.filter(pred))
   }
@@ -122,11 +100,11 @@ class ArrayModifierImpl<S extends State, B extends State, V> {
     return performUpdate(this._state, this._path, ArrayOps.remove(pred))
   }
 
-  removeFirst(pred?: (item: V, idx: number) => boolean) {
+  removeFirst(pred: (item: V, idx: number) => boolean) {
     return performUpdate(this._state, this._path, ArrayOps.removeFirst(pred))
   }
 
-  removeLast(pred?: (item: V, idx: number) => boolean) {
+  removeLast(pred: (item: V, idx: number) => boolean) {
     return performUpdate(this._state, this._path, ArrayOps.removeLast(pred))
   }
 
@@ -138,22 +116,27 @@ class ArrayModifierImpl<S extends State, B extends State, V> {
 // --- updates (types) -----------------------------------------------
 
 type UpdaterType<S extends State, B extends State, T> =
-  IfNeverThenNull<T extends (infer V)[] ? ArrayUpdater<S, B, V> : never
-    | T extends Record<string, any> ? ObjectUpdater<S, B, T> : never>
+  IfNeverThenNull<T extends (infer V)[] ? ArrayUpdater<S, V[], V> : never
+    | T extends Record<string, any> ? ObjectUpdater<S, T, T> : never>
 
-type ObjectUpdater<S extends State, B extends State, T extends Record<string, any>> = {
+type ObjectUpdater<S extends State, B extends Obj, T extends Record<string, any>> = {
   select: UpdateSelector<S, B>,
   set<K extends keyof T>(key: K, value: T[K]): Update<S, T> 
   map<K extends keyof T>(key: K, mapper: (value: T[K]) => T[K]): Update<S, T>
 }
 
-type ArrayUpdater<S extends State, B extends State, V> = {
+type ArrayUpdater<S extends State, B extends V[], V> = {
   select: UpdateSelector<S, B>,
-  push(value: V): Update<S, V[]>
+  push(value: V): Update<S, V[]>,
+  pop(value: V): Update<S, V[]>,
+  filter(pred: (item: V) => boolean): Update<S, V[]>,
+  remove(pred: (item: V, idx: number) => boolean): Update<S, V[]>,
+  removeFirst(pred: (item: V, idx: number) => boolean): Update<S, V[]>,
+  removeLast(pred: (item: V, idx: number) => boolean): Update<S, V[]>,
   clear(): Update<S, V[]>
 }
 
-type UpdateSelector<S extends State, B extends State> = {
+type UpdateSelector<S extends State, B extends Obj> = {
   <K1 extends keyof B>(k1: K1): UpdaterType<S, B, B[K1]>,
   <K1 extends keyof B, K2 extends keyof B[K1]>(k1: K1, k2: K2): UpdaterType<S, B, B[K1][K2]>,
   <K1 extends keyof B, K2 extends keyof B[K1], K3 extends keyof B[K1][K2]>(k1: K1, k2: K2, k3: K3): UpdaterType<S, B, B[K1][K2][K3]>,
@@ -168,7 +151,7 @@ type Update<S extends State, T> = {
 
 // --- updates (impl) ------------------------------------------------
 
-class ObjectUpdaterImpl<S extends State, B extends State, T extends Record<string, any>> implements ObjectUpdater<S, B, T> {
+class ObjectUpdaterImpl<S extends State, B extends Obj, T extends Record<string, any>> implements ObjectUpdater<S, B, T> {
   private _state: S
   private _path: string[]
 
@@ -190,7 +173,7 @@ class ObjectUpdaterImpl<S extends State, B extends State, T extends Record<strin
   }
 }
 
-class ArrayUpdaterImpl<S extends State, B extends State, V> implements ArrayUpdater<S, B, V> {
+class ArrayUpdaterImpl<S extends State, B extends V[], V> implements ArrayUpdater<S, B, V> {
   private _state: S
   private _path: string[]
 
@@ -206,6 +189,10 @@ class ArrayUpdaterImpl<S extends State, B extends State, V> implements ArrayUpda
   push(newItem: V): Update<S, V[]> {
     return createUpdate(this._path, ArrayOps.push(newItem))
   }
+  
+  pop(): Update<S, V[]> {
+    return createUpdate(this._path, ArrayOps.pop())
+  }
 
   filter(pred: (item: V) => boolean) {
     return createUpdate(this._path, ArrayOps.filter(pred))
@@ -215,11 +202,11 @@ class ArrayUpdaterImpl<S extends State, B extends State, V> implements ArrayUpda
     return createUpdate(this._path, ArrayOps.remove(pred))
   }
 
-  removeFirst(pred?: (item: V, idx: number) => boolean) {
+  removeFirst(pred: (item: V, idx: number) => boolean) {
     return createUpdate(this._path, ArrayOps.removeFirst(pred))
   }
  
-  removeLast(pred?: (item: V, idx: number) => boolean) {
+  removeLast(pred: (item: V, idx: number) => boolean) {
     return createUpdate(this._path, ArrayOps.removeLast(pred))
   }
 
@@ -230,7 +217,8 @@ class ArrayUpdaterImpl<S extends State, B extends State, V> implements ArrayUpda
 
 // --- shared types --------------------------------------------------
 
-type State = Record<string, any>
+type Obj = Record<string, any>
+type State = Record<string, any> | any[]
 
 type IfNeverThenNull<T> = T extends never ? null : T
 
@@ -250,6 +238,14 @@ const ArrayOps = {
   push<V>(newItem: V): (arr: V[]) => V[] {
     return (arr: V[]) => [...arr, newItem]
   },
+  
+  pop<V>(): (arr: V[]) => V[] {
+    return (arr: V[]) => {
+      const ret = [...arr]
+      ret.pop()
+      return ret
+    }
+  },
 
   filter<V>(pred: (item: V, idx: number) => boolean): (arr: V[]) => V[] {
     return (arr: V[]) => arr.filter(pred)
@@ -259,20 +255,18 @@ const ArrayOps = {
     return (arr: V[]) => arr.filter((value, idx) => !pred(value, idx))
   },
 
-  removeFirst<V>(pred?: (item: V, idx: number) => boolean): (arr: V[]) => V[] {
+  removeFirst<V>(pred: (item: V, idx: number) => boolean): (arr: V[]) => V[] {
     return (arr: V[]) => {
-      const idx = !pred ? 0 : arr.findIndex(pred)
+      const idx = arr.findIndex(pred)
 
-      return arr.splice(idx, 1)
+      return idx >= 0
+        ? arr.splice(idx, 1)
+        : arr
     }
   },
  
-  removeLast<V>(pred?: (item: V, idx: number) => boolean): (arr: V[]) => V[] {
+  removeLast<V>(pred: (item: V, idx: number) => boolean): (arr: V[]) => V[] {
     return (arr: V[]) => {
-      if (!pred) {
-        return arr.splice(arr.length - 1, 1)
-      }
-
       for (let idx = arr.length - 1; idx >= 0; --idx) {
         if (pred(arr[idx], idx)) {
           return arr.splice(idx, 1)
@@ -289,6 +283,31 @@ const ArrayOps = {
 }
 
 // --- shared functions ----------------------------------------------
+
+function createHandler(base: any, path: any[], ObjectHandlerClass: any, ArrayHandlerClass: any): any {
+  let ret = null
+
+  if (base) {
+    let current = base
+
+    for (let i = 0; i < path.length; ++i) {
+      const key = path[i]
+      current = base[key]
+
+      if (!current) {
+        break
+      }
+    }
+
+    if (Array.isArray(current)) {
+      ret = new ArrayHandlerClass(base, path)
+    } else if (current && typeof current === 'object') {
+      ret = new ObjectHandlerClass(base, path)
+    }
+  }
+
+  return ret
+}
 
 function createUpdate<S extends State, T>(
   path: string[],
@@ -314,7 +333,7 @@ function performUpdates<S extends State>(state: S, updates: { path: string[], ma
       pathAsString = idx === 0 ? key : '@' + key
 
       if (!modifiedPaths || !hasOwnProp(modifiedPaths, pathAsString)) {
-        substate2[key] = { ...substate[key] }
+        substate2[key] = { ...(substate as any)[key] } // TODO!!!!!
         
         if (modifiedPaths) {
           modifiedPaths[pathAsString] = true
@@ -322,7 +341,7 @@ function performUpdates<S extends State>(state: S, updates: { path: string[], ma
       }
 
       parent2 = substate2
-      substate = substate[key]
+      substate = (substate as any)[key] // TODO!!!!!
       substate2 = substate2[key]
     })
  
