@@ -24,14 +24,6 @@ function update<S extends State>(state: S, sndArg?: any): any {
   return null
 }
 
-function updateMultiple<S extends State>(state: S, getUpdates: (select: UpdateSelector<S>) => Update<S, any>[]): S {
-  const
-    select = (...path: string[]) => new ObjectUpdaterImpl(state, path),
-    updates = Array.from(getUpdates(select as any)) // TODO
-
-  return performUpdates(state, updates)
-}
-
 type Selector<S extends State> = {
   <K1 extends keyof S>(k1: K1): ModifierType<S, S[K1]>,
   <K1 extends keyof S, K2 extends keyof S[K1]>(k1: K1, k2: K2): ModifierType<S, S[K1][K2]>,
@@ -50,7 +42,7 @@ type UpdateSelector<S extends State> = {
 
 type Update<S extends State, T> = {
   path: string[],
-  mapper: (value: T) => T // TODO
+  mapper: (value: T) => T 
 }
 
 class ObjectModifierImpl<S extends State, T extends Record<string, any>> {
