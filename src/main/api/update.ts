@@ -16,7 +16,7 @@ function update<S extends State>(state: S, sndArg?: any): any {
   }
 
   if (Array.isArray(state)) {
-    //return new ArrayModifierImpl(state) // TODO
+    return new ArrayModifierImpl(state, []) 
   } else if (state && typeof state === 'object') {
     return new ObjectModifierImpl(state, [])
   }
@@ -54,8 +54,8 @@ class ObjectModifierImpl<S extends State, T extends Record<string, any>> {
     this._path = path
   }
 
-  path(...keys: string[]) { // TODO!!!!!!!!!
-    return new ObjectModifierImpl(this._state, [...this._path, ...keys ]) // TODO
+  path(...keys: string[]) {
+    return new ObjectModifierImpl(this._state, [...this._path, ...keys ])
   }
 
   map(key: keyof T, mapper: (value: T) => T): S {
@@ -70,6 +70,29 @@ class ObjectModifierImpl<S extends State, T extends Record<string, any>> {
     })
   }
 }
+
+class ArrayModifierImpl<S extends State, V> {
+  _state: S
+  _path: string[]
+
+  constructor(state: S, path: string[]) {
+    this._state = state
+    this._path = path
+  }
+
+  path(...keys: string[]) {
+    return new ObjectModifierImpl(this._state, [...this._path, ...keys ])
+  }
+
+  push() {
+
+  }
+
+  clear() {
+
+  }
+}
+
 
 function performUpdates<S extends State>(state: S, updates: { path: string[], mapper: (value: any) => any }[]) {
   let state2 = { ...state }
@@ -120,7 +143,7 @@ function hasOwnProp(obj: any, propName: string) {
 type State = Record<string, any>
 
 type ObjectModifier<S extends State, T extends Record<string, any>> = {
-  path(key: any): any, // TODO!!!!!!!!!!!!!!!!!!!!!!!
+  path: Selector<S>,
   set<K extends keyof T>(key: K, value: T[K]): S
   map<K extends keyof T>(key: K, mapper: (value: T[K]) => T[K]): S
 }
@@ -170,11 +193,11 @@ class ObjectUpdaterImpl<S extends State, T extends Record<string, any>> implemen
   }
 
   map<K extends keyof T>(key: K, mapper: (value: T[K]) => T[K]): Update<S, T> {
-    return createUpdate(this._path, (obj: T) => ({ ...obj, [key]: mapper(obj[key]) }))
+    return createUpdate(this._path, ObjectOps.map(key, mapper))
   }
 
   set<K extends keyof T>(key: K, newValue: T[K]): Update<S, T> {
-    return createUpdate(this._path, (obj: T) => ({ ...obj, [key]: newValue }))
+    return createUpdate(this._path, ObjectOps.set(key, newValue))
   }
 }
 
@@ -188,28 +211,63 @@ class ArrayUpdaterImpl<S extends State, V> implements ArrayUpdater<S, V> {
   }
 
   push(newItem: V): Update<S, V[]> {
-    return createUpdate(this._path, (arr: V[]) => [...arr, newItem])
+    return createUpdate(this._path, ArrayOps.push(newItem))
   }
 
   filter(pred: (item: V) => boolean) {
-    return createUpdate(this._path, (arr: V[]) => arr.filter(pred))
+    return createUpdate(this._path, ArrayOps.filter(pred))
   }
 
   remove(pred: (item: V, idx: number) => boolean) {
-    return createUpdate(this._path,
-      (arr: V[]) => arr.filter((value, idx) => !pred(value, idx)))
+    return createUpdate(this._path, ArrayOps.remove(pred))
   }
 
   removeFirst(pred?: (item: V, idx: number) => boolean) {
-    return createUpdate(this._path, (arr: V[]) => {
-      const idx = !pred ? 0 : arr.findIndex(pred)
-
-      return arr.splice(idx, 1)
-    })
+    return createUpdate(this._path, ArrayOps.removeFirst(pred))
   }
  
   removeLast(pred?: (item: V, idx: number) => boolean) {
-    return createUpdate(this._path, (arr: V[]) => {
+    return createUpdate(this._path, ArrayOps.removeLast(pred))
+  }
+
+  clear(): Update<S, V[]> {
+    return createUpdate(this._path, ArrayOps.clear())
+  }
+}
+
+const ObjectOps = {
+  set<T extends Record<string, any>, K extends keyof T>(key: K, newValue: T[K]): (obj: T) => T {
+    return (obj: T) => ({ ...obj, [key]: newValue })
+  },
+  
+  map<T extends Record<string, any>, K extends keyof T>(key: K, mapper: (value: T[K]) => T[K]): (obj: T) => T {
+    return (obj: T) => ({ ...obj, [key]: mapper(obj[key]) })
+  }
+}
+
+const ArrayOps = {
+  push<V>(newItem: V): (arr: V[]) => V[] {
+    return (arr: V[]) => [...arr, newItem]
+  },
+
+  filter<V>(pred: (item: V) => boolean): (arr: V[]) => V[] {
+    return (arr: V[]) => arr.filter(pred)
+  },
+
+  remove<V>(pred: (item: V, idx: number) => boolean): (arr: V[]) => V[] {
+    return (arr: V[]) => arr.filter((value, idx) => !pred(value, idx))
+  },
+
+  removeFirst<V>(pred?: (item: V, idx: number) => boolean): (arr: V[]) => V[] {
+    return (arr: V[]) => {
+      const idx = !pred ? 0 : arr.findIndex(pred)
+
+      return arr.splice(idx, 1)
+    }
+  },
+ 
+  removeLast<V>(pred?: (item: V, idx: number) => boolean): (arr: V[]) => V[] {
+    return (arr: V[]) => {
       if (!pred) {
         return arr.splice(arr.length - 1, 1)
       }
@@ -221,10 +279,10 @@ class ArrayUpdaterImpl<S extends State, V> implements ArrayUpdater<S, V> {
       }
 
       return arr
-    })
-  }
+    }
+  },
 
-  clear(): Update<S, V[]> {
-    return createUpdate(this._path, () => [] as V[])
+  clear<V>(): (arr: V[]) => V[] {
+    return (arr: V[]) => []
   }
 }
