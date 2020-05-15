@@ -40,6 +40,8 @@ type ArrayModifier<S extends State, B extends State, V> = {
   path: ModifySelector<S, B>,
   push(item: V): S,
   pop(): S,
+  map(mapper: (item: V, idx: number) =>V): S,
+  mapFirst(pred: (item: V, idx: number) => boolean, mapper: (item: V, idx: number) =>V): S,
   filter(pred: (item: V, idx: number) => boolean): S,
   remove(pred: (item: V, idx: number) => boolean): S,
   removeFirst(pred: (item: V, idx: number) => boolean): S,
@@ -71,7 +73,7 @@ class ObjectModifierImpl<S extends State, T extends Record<string, any>> {
   }
 }
 
-class ArrayModifierImpl<S extends State, B extends Obj, V> {
+class ArrayModifierImpl<S extends State, B extends Obj, V> implements ArrayModifier<S, B, V> {
   _state: S
   _path: string[]
 
@@ -87,8 +89,19 @@ class ArrayModifierImpl<S extends State, B extends Obj, V> {
   push(item: V) {
     return performUpdate(this._state, this._path, ArrayOps.push(item))
   }
+  
+  map(mapper: (item: V, idx: number) => V) {
+    return performUpdate(this._state, this._path, ArrayOps.map(mapper))
+  }
 
-  pop(item: V) {
+  mapFirst(
+    pred: (item: V, idx: number) => boolean,
+    mapper: (item: V, idx: number) =>V
+  ) {
+    return performUpdate(this._state, this._path, ArrayOps.mapFirst(pred, mapper))
+  }
+
+  pop() {
     return performUpdate(this._state, this._path, ArrayOps.pop())
   }
 
@@ -129,6 +142,8 @@ type ArrayUpdater<S extends State, B extends State, V> = {
   select: UpdateSelector<S, B>,
   push(value: V): Update<S, V[]>,
   pop(value: V): Update<S, V[]>,
+  map(mapper: (item: V, idx: number) =>V): Update<S, V[]>,
+  mapFirst(pred: (item: V, idx: number) => boolean, mapper: (item: V, idx: number) =>V): Update<S, V[]>,
   filter(pred: (item: V) => boolean): Update<S, V[]>,
   remove(pred: (item: V, idx: number) => boolean): Update<S, V[]>,
   removeFirst(pred: (item: V, idx: number) => boolean): Update<S, V[]>,
@@ -194,6 +209,17 @@ class ArrayUpdaterImpl<S extends State, B extends V[], V> implements ArrayUpdate
     return createUpdate(this._path, ArrayOps.pop())
   }
 
+  map(mapper: (item: V, idx: number) => V) {
+    return createUpdate(this._path, ArrayOps.map(mapper))
+  }
+
+  mapFirst(
+    pred: (item: V, idx: number) => boolean,
+    mapper: (item: V, idx: number) =>V
+  ) {
+    return createUpdate(this._path, ArrayOps.mapFirst(pred, mapper))
+  }
+
   filter(pred: (item: V) => boolean) {
     return createUpdate(this._path, ArrayOps.filter(pred))
   }
@@ -244,6 +270,23 @@ const ArrayOps = {
       const ret = [...arr]
       ret.pop()
       return ret
+    }
+  },
+
+  map<V>(mapper: (item: V, idx: number) => V): (arr: V[]) => V[] {
+    return (arr: V[]) => arr.map(mapper)
+  },
+
+  mapFirst<V>(
+    pred: (item: V, idx: number) => boolean,
+    mapper: (item: V, idx: number) => V
+  ) {
+    return (arr: V[]) => {
+      const matchIdx = arr.findIndex(pred)
+
+      return matchIdx === -1
+        ? arr
+        : arr.slice(0, matchIdx).concat(mapper(arr[matchIdx], matchIdx), arr.slice(matchIdx + 1))
     }
   },
 

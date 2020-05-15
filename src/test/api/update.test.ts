@@ -92,6 +92,36 @@ describe('update', () => {
       })
   })
   
+  it('should perform a map an array', () => {
+    const result = update(state).path('tasks').map(
+      task => update(task).map('text', it => it + '!'))
+    
+    expect(result)
+      .to.eql({
+        ...state,
+        tasks: [
+          { ...task1, text: 'Do something!' },
+          { ...task2, text: 'Do something else!' }
+        ]
+      })
+  })
+  
+  it('should perform a map on the first match of an array', () => {
+    const result = update(state).path('tasks').mapFirst(
+      task => task.id === 2,
+      task => update(task).map('text', it => it + '!'))
+    
+    expect(result)
+      .to.eql({
+        ...state,
+        tasks: [
+          task1,
+          { ...task2, text: 'Do something else!' }
+        ]
+      })
+  })
+  
+  
   it('should perform a `remove` on an array', () => {
     const result = update(state).path('tasks').removeFirst(it => it.id === 1)
     
