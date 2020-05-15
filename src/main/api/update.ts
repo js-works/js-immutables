@@ -1,22 +1,30 @@
 export default update
 
 function update<S extends State>(state: S): ModifierType<S, S> 
-function update<S extends State>(state: S, getUpdates: (select: Selector2<S>) => Update<S, any>[]): S 
-function update<S extends State>(state: S, generateUpdates: (select: Selector2<S>) => Generator<Update<S, any>>): S 
+function update<S extends State>(state: S, getUpdates: (select: UpdateSelector<S>) => Update<S, any>[]): S 
+function update<S extends State>(state: S, generateUpdates: (select: UpdateSelector<S>) => Generator<Update<S, any>>): S 
 
 function update<S extends State>(state: S, sndArg?: any): any {
   if (arguments.length > 1) {
     if (typeof sndArg === 'function') {
-      return updateMultiple(state, sndArg)
+      const select = (...path: string[]) => new ObjectUpdaterImpl(state, path)
+
+      return performUpdates(state, Array.from(sndArg(select)))
     } else {
       return update(state)
     }
   }
 
-  return new ObjectModifierImpl(state, [])
+  if (Array.isArray(state)) {
+    //return new ArrayModifierImpl(state) // TODO
+  } else if (state && typeof state === 'object') {
+    return new ObjectModifierImpl(state, [])
+  }
+
+  return null
 }
 
-function updateMultiple<S extends State>(state: S, getUpdates: (select: Selector2<S>) => Update<S, any>[]): S {
+function updateMultiple<S extends State>(state: S, getUpdates: (select: UpdateSelector<S>) => Update<S, any>[]): S {
   const
     select = (...path: string[]) => new ObjectUpdaterImpl(state, path),
     updates = Array.from(getUpdates(select as any)) // TODO
@@ -32,16 +40,12 @@ type Selector<S extends State> = {
   <K1 extends keyof S, K2 extends keyof S[K1], K3 extends keyof S[K1][K2], K4 extends keyof S[K1][K2][K3], K5 extends keyof S[K1][K2][K3][K4]>(k1: K1, k2: K2, k3: K3, k4: K4, k5: K5): ModifierType<S, S[K1][K2][K3][K4][K5]>,
 }
 
-type Selector2<S extends State> = {
+type UpdateSelector<S extends State> = {
   <K1 extends keyof S>(k1: K1): UpdaterType<S, S[K1]>,
   <K1 extends keyof S, K2 extends keyof S[K1]>(k1: K1, k2: K2): UpdaterType<S, S[K1][K2]>,
   <K1 extends keyof S, K2 extends keyof S[K1], K3 extends keyof S[K1][K2]>(k1: K1, k2: K2, k3: K3): UpdaterType<S, S[K1][K2][K3]>,
   <K1 extends keyof S, K2 extends keyof S[K1], K3 extends keyof S[K1][K2], K4 extends keyof S[K1][K2][K3]>(k1: K1, k2: K2, k3: K3, k4: K4): UpdaterType<S, S[K1][K2][K3][K4]>,
   <K1 extends keyof S, K2 extends keyof S[K1], K3 extends keyof S[K1][K2], K4 extends keyof S[K1][K2][K3], K5 extends keyof S[K1][K2][K3][K4]>(k1: K1, k2: K2, k3: K3, k4: K4, k5: K5): UpdaterType<S, S[K1][K2][K3][K4][K5]>,
-}
-
-function select<S extends State>(state: S): Selector<S> {
-  return (...args: any[]) => new ObjectModifierImpl(state, args) as any // TODO
 }
 
 type Update<S extends State, T> = {
@@ -66,7 +70,7 @@ class ObjectModifierImpl<S extends State, T extends Record<string, any>> {
     return performUpdate(this._state, this._path, (obj: T) => ({ ...obj, [key]: mapper(obj[key]) })) 
   }
 
-  set(key: keyof T, newValue: T) {console.log(222222222222222, key)
+  set(key: keyof T, newValue: T) {
     return performUpdate(this._state, this._path, (obj: T) => {
       const ret =({ ...obj, [key]: newValue })
       console.log(3333, ret)
