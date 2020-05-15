@@ -19,7 +19,7 @@ function update<S extends State>(state: S, sndArg?: any): any {
 
 function updateMultiple<S extends State>(state: S, getUpdates: (select: Selector2<S>) => Update<S, any>[]): S {
   const
-    select = (...path: string[]) => new ObjectModifier2(state, path),
+    select = (...path: string[]) => new ObjectUpdaterImpl(state, path),
     updates = Array.from(getUpdates(select as any)) // TODO
 
   return performUpdates(state, updates)
@@ -38,23 +38,23 @@ class Updater<S extends State> {
 }
 
 type Selector<S extends State> = {
-  <K1 extends keyof S>(k1: K1): ObjectModifier<S, S[K1]>,
-  <K1 extends keyof S, K2 extends keyof S[K1]>(k1: K1, k2: K2): ObjectModifier<S, S[K1][K2]>,
-  <K1 extends keyof S, K2 extends keyof S[K1], K3 extends keyof S[K1][K2]>(k1: K1, k2: K2, k3: K3): ObjectModifier<S, S[K1][K2][K3]>,
-  <K1 extends keyof S, K2 extends keyof S[K1], K3 extends keyof S[K1][K2], K4 extends keyof S[K1][K2][K3]>(k1: K1, k2: K2, k3: K3, k4: K4): ObjectModifier<S, S[K1][K2][K3][K4]>,
-  <K1 extends keyof S, K2 extends keyof S[K1], K3 extends keyof S[K1][K2], K4 extends keyof S[K1][K2][K3], K5 extends keyof S[K1][K2][K3][K4]>(k1: K1, k2: K2, k3: K3, k4: K4, k5: K5): ObjectModifier<S, S[K1][K2][K3][K4][K5]>,
+  <K1 extends keyof S>(k1: K1): ObjectModifierImpl<S, S[K1]>,
+  <K1 extends keyof S, K2 extends keyof S[K1]>(k1: K1, k2: K2): ObjectModifierImpl<S, S[K1][K2]>,
+  <K1 extends keyof S, K2 extends keyof S[K1], K3 extends keyof S[K1][K2]>(k1: K1, k2: K2, k3: K3): ObjectModifierImpl<S, S[K1][K2][K3]>,
+  <K1 extends keyof S, K2 extends keyof S[K1], K3 extends keyof S[K1][K2], K4 extends keyof S[K1][K2][K3]>(k1: K1, k2: K2, k3: K3, k4: K4): ObjectModifierImpl<S, S[K1][K2][K3][K4]>,
+  <K1 extends keyof S, K2 extends keyof S[K1], K3 extends keyof S[K1][K2], K4 extends keyof S[K1][K2][K3], K5 extends keyof S[K1][K2][K3][K4]>(k1: K1, k2: K2, k3: K3, k4: K4, k5: K5): ObjectModifierImpl<S, S[K1][K2][K3][K4][K5]>,
 }
 
 type Selector2<S extends State> = {
-  <K1 extends keyof S>(k1: K1): ObjectModifier2<S, S[K1]>,
-  <K1 extends keyof S, K2 extends keyof S[K1]>(k1: K1, k2: K2): ObjectModifier2<S, S[K1][K2]>,
-  <K1 extends keyof S, K2 extends keyof S[K1], K3 extends keyof S[K1][K2]>(k1: K1, k2: K2, k3: K3): ObjectModifier2<S, S[K1][K2][K3]>,
-  <K1 extends keyof S, K2 extends keyof S[K1], K3 extends keyof S[K1][K2], K4 extends keyof S[K1][K2][K3]>(k1: K1, k2: K2, k3: K3, k4: K4): ObjectModifier2<S, S[K1][K2][K3][K4]>,
-  <K1 extends keyof S, K2 extends keyof S[K1], K3 extends keyof S[K1][K2], K4 extends keyof S[K1][K2][K3], K5 extends keyof S[K1][K2][K3][K4]>(k1: K1, k2: K2, k3: K3, k4: K4, k5: K5): ObjectModifier2<S, S[K1][K2][K3][K4][K5]>,
+  <K1 extends keyof S>(k1: K1): UpdaterType<S, S[K1]>,
+  <K1 extends keyof S, K2 extends keyof S[K1]>(k1: K1, k2: K2): UpdaterType<S, S[K1][K2]>,
+  <K1 extends keyof S, K2 extends keyof S[K1], K3 extends keyof S[K1][K2]>(k1: K1, k2: K2, k3: K3): UpdaterType<S, S[K1][K2][K3]>,
+  <K1 extends keyof S, K2 extends keyof S[K1], K3 extends keyof S[K1][K2], K4 extends keyof S[K1][K2][K3]>(k1: K1, k2: K2, k3: K3, k4: K4): UpdaterType<S, S[K1][K2][K3][K4]>,
+  <K1 extends keyof S, K2 extends keyof S[K1], K3 extends keyof S[K1][K2], K4 extends keyof S[K1][K2][K3], K5 extends keyof S[K1][K2][K3][K4]>(k1: K1, k2: K2, k3: K3, k4: K4, k5: K5): UpdaterType<S, S[K1][K2][K3][K4][K5]>,
 }
 
 function select<S extends State>(state: S): Selector<S> {
-  return (...args: any[]) => new ObjectModifier(state, args) as any // TODO
+  return (...args: any[]) => new ObjectModifierImpl(state, args) as any // TODO
 }
 
 type Update<S extends State, T> = {
@@ -62,7 +62,7 @@ type Update<S extends State, T> = {
   mapper: (value: T) => T // TODO
 }
 
-class ObjectModifier<S extends State, T> {
+class ObjectModifierImpl<S extends State, T> {
   _state: S
   _path: string[]
 
@@ -77,24 +77,6 @@ class ObjectModifier<S extends State, T> {
 
   set(newValue: T) {
     return performUpdate(this._state, this._path, () => newValue) 
-  }
-}
-
-class ObjectModifier2<S extends State, T> {
-  private _state: S
-  private _path: string[]
-
-  constructor(state: S, path: string[]) {
-    this._state = state
-    this._path = path
-  }
-
-  map(mapper: (value: T) => T) {
-    return { path: this._path, mapper }
-  }
-
-  set(newValue: T) {
-    return { path: this._path, mapper: () => newValue } 
   }
 }
 
@@ -138,4 +120,86 @@ function hasOwnProp(obj: any, propName: string) {
   return Object.prototype.hasOwnProperty.call(obj, propName)
 }
 
+// ==============================================================
+
 type State = Record<string, any>
+
+type ObjectModifier<S extends State, T extends Record<string, any>> = {
+  set<K extends keyof T>(key: K, value: T[K]): S
+  map<K extends keyof T>(key: K, mapper: (value: T[K]) => T[K]): S
+}
+
+type ArrayModifier<S extends State, V, T extends V[]> = {
+  push(value: V): S
+  clear(): S
+}
+
+type ObjectUpdater<S extends State, T extends Record<string, any>> = {
+  set<K extends keyof T>(key: K, value: T[K]): Update<S, T> 
+  map<K extends keyof T>(key: K, mapper: (value: T[K]) => T[K]): Update<S, T>
+}
+
+type ArrayUpdater<S extends State, V> = {
+  push(value: V): Update<S, V[]>
+  clear(): Update<S, V[]>
+}
+
+type ModifierType<S extends State, T> =
+  T extends (infer V)[]
+    ? ArrayModifier<S, V, V[]>
+    : T extends Record<string, any>
+    ? ObjectModifier<S, T>
+      : null
+
+type UpdaterType<S extends State, T> =
+  T extends (infer V)[]
+    ? ArrayUpdater<S, V>
+    : T extends Record<string, any>
+    ? ObjectUpdater<S, T>
+      : null
+
+function createUpdate<S extends State, T>(
+  path: string[],
+  mapper: (value: T) => T
+): Update<S, T> {
+  return { 
+    path,
+    mapper
+  }
+}
+
+class ObjectUpdaterImpl<S extends State, T extends Record<string, any>> implements ObjectUpdater<S, T> {
+  private _state: S
+  private _path: string[]
+
+  constructor(state: S, path: string[]) {
+    this._state = state
+    this._path = path
+  }
+
+  map<K extends keyof T>(key: K, mapper: (value: T[K]) => T[K]): Update<S, T> {
+    return createUpdate(this._path, (obj: T) => ({ ...obj, [key]: mapper(obj[key]) }))
+  }
+
+  set<K extends keyof T>(key: K, newValue: T[K]): Update<S, T> {
+    return createUpdate(this._path, (obj: T) => ({ ...obj, [key]: newValue }))
+  }
+}
+
+class ArrayUpdaterImpl<S extends State, V> implements ArrayUpdater<S, V> {
+  private _state: S
+  private _path: string[]
+
+  constructor(state: S, path: string[]) {
+    this._state = state
+    this._path = path
+  }
+
+  push(newItem: V): Update<S, V[]> {
+    return createUpdate(this._path, (arr: V[]) => [...arr, newItem])
+  }
+  
+  clear(): Update<S, V[]> {
+    return createUpdate(this._path, () => [] as V[])
+  }
+}

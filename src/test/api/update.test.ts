@@ -60,8 +60,8 @@ describe('update', () => {
   
   it('should perform multiple updates properly', () => {
     const result = update(state, select => [
-      select('login', 'username').set('John Doe'), // TODO
-      select('login', 'isAdmin').map(it => !it), // TODO
+      select('login').set('username', 'John Doe'),
+      select('login').map('isAdmin', it => !it),
     ])
     
     expect(result)
@@ -77,8 +77,8 @@ describe('update', () => {
   
   it('should perform multiple updates by using a generator', () => {
     const result = update(state, function* (select) {
-      yield select('login', 'username').set('John Doe'),
-      yield select('login', 'isAdmin').map(it => !it)
+      yield select('login').set('username', 'John Doe'),
+      yield select('login').map('isAdmin', it => !it)
     })
     
     expect(result)
