@@ -1,16 +1,16 @@
 {
-  "name": "js-immutable",
+  "name": "js-immutables",
   "version": "0.0.2",
   "license": "LGPL-3.0",
-  "homepage": "https://github.com/js-works/js-immutable",
+  "homepage": "https://github.com/js-works/js-immutables",
   "main": "index.js",
   "types": "dist/types/index.d.ts",
-  "module": "dist/js-immutable.esm.production.js",
-  "unpkg": "dist/js-immutable.umd.production.js",
-  "jsdelivr": "dist/js-immutable.umd.production.js",
+  "module": "dist/js-immutables.esm.production.js",
+  "unpkg": "dist/js-immutables.umd.production.js",
+  "jsdelivr": "dist/js-immutables.umd.production.js",
   "repository": {
     "type": "git",
-    "url": "https://github.com/js-works/js-immutable.git"
+    "url": "https://github.com/js-works/js-immutables.git"
   },
   "files": [
     "index.js",
@@ -61,7 +61,7 @@
       "src/main"
     ],
     "exclude": [
-      "src/main/js-immutable.ts"
+      "src/main/js-immutables.ts"
     ],
     "extension": [
       ".ts"

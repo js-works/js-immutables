@@ -9,8 +9,8 @@ const state = {
   },
 
   tasks: [
-    { id: 1, text: 'Do something' },
-    { id: 2, text: 'Do something else' },
+    { id: 1, text: 'Do something', options: { prio: 'high' } },
+    { id: 2, text: 'Do something else', options: { prio: 'low' } },
   ]
 }
 
@@ -46,7 +46,7 @@ describe('update', () => {
   })
 
   it('should perform a "map" operation properly on objects', () => {
-    const result = update(state).path('login').map('isAdmin', (it: any) => !it) // TODO!!!!!!!
+    const result = update(state).path('login').map('isAdmin', it => !it)
     
     expect(result)
       .to.eql({
@@ -89,6 +89,29 @@ describe('update', () => {
           username: 'John Doe',
           isAdmin: false
         }
+      })
+  })
+  
+  it('should perform a `remove` on an array', () => {
+    const result = update(state).path('tasks').removeFirst(it => it.id === 1)
+    
+    expect(result)
+      .to.eql({
+        ...state,
+        tasks: [task2]
+      })
+  })
+  
+  it('should perform a `set` on an deep object', () => {
+    const result = update(state).path('tasks', 0, 'options').set('prio', 'low')
+    
+    expect(result)
+      .to.eql({
+        ...state,
+        tasks: [
+          { ...task1, options: { ...task1.options, prio: 'low' } },
+          task2
+        ]
       })
   })
 })

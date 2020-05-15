@@ -25,8 +25,8 @@ function createConfig(moduleFormat, productive) {
 
     output: {
       file: productive
-        ? `dist/js-immutable.${moduleFormat}.production.js`
-        : `dist/js-immutable.${moduleFormat}.development.js`,
+        ? `dist/js-immutables.${moduleFormat}.production.js`
+        : `dist/js-immutables.${moduleFormat}.development.js`,
 
       format: moduleFormat,
       name: 'jsMessages', 

@@ -19,7 +19,7 @@ function update<S extends State>(state: S, sndArg?: any): any {
 // --- modification (types) ------------------------------------------
 
 type ModifierType<S extends State, B extends Obj, T> =
-  IfNeverThenNull<T extends (infer V)[] ? ArrayModifier<S, B, V[]> : never
+  IfNeverThenNull<T extends (infer V)[] ? ArrayModifier<S, B, V> : never
     | T extends Record<string, any> ? ObjectModifier<S, B, T> : never>
 
 type ModifySelector<S extends State, B extends Obj> = {
@@ -36,7 +36,7 @@ type ObjectModifier<S extends State, B extends Obj, T extends Record<string, any
   map<K extends keyof T>(key: K, mapper: (value: T[K]) => T[K]): S
 }
 
-type ArrayModifier<S extends State, B extends Obj, V> = {
+type ArrayModifier<S extends State, B extends State, V> = {
   path: ModifySelector<S, B>,
   push(item: V): S,
   pop(): S,
@@ -59,7 +59,7 @@ class ObjectModifierImpl<S extends State, T extends Record<string, any>> {
   }
 
   path(...keys: string[]) {
-    return new ObjectModifierImpl(this._state, [...this._path, ...keys ]) // TODO!!!!!
+    return createHandler(this._state, [...this._path, ...keys ], ObjectModifierImpl, ArrayModifierImpl)
   }
 
   map(key: keyof T, mapper: (value: T) => T): S {
@@ -81,7 +81,7 @@ class ArrayModifierImpl<S extends State, B extends Obj, V> {
   }
 
   path(...keys: string[]) {
-    return new ObjectModifierImpl(this._state, [...this._path, ...keys ]) // TODO!!!!
+    return createHandler(this._state, [...this._path, ...keys ], ObjectModifierImpl, ArrayModifierImpl)
   }
 
   push(item: V) {
@@ -116,8 +116,8 @@ class ArrayModifierImpl<S extends State, B extends Obj, V> {
 // --- updates (types) -----------------------------------------------
 
 type UpdaterType<S extends State, B extends State, T> =
-  IfNeverThenNull<T extends (infer V)[] ? ArrayUpdater<S, V[], V> : never
-    | T extends Record<string, any> ? ObjectUpdater<S, T, T> : never>
+  IfNeverThenNull<T extends (infer V)[] ? ArrayUpdater<S, B, V> : never
+    | T extends Record<string, any> ? ObjectUpdater<S, B, T> : never>
 
 type ObjectUpdater<S extends State, B extends Obj, T extends Record<string, any>> = {
   select: UpdateSelector<S, B>,
@@ -125,7 +125,7 @@ type ObjectUpdater<S extends State, B extends Obj, T extends Record<string, any>
   map<K extends keyof T>(key: K, mapper: (value: T[K]) => T[K]): Update<S, T>
 }
 
-type ArrayUpdater<S extends State, B extends V[], V> = {
+type ArrayUpdater<S extends State, B extends State, V> = {
   select: UpdateSelector<S, B>,
   push(value: V): Update<S, V[]>,
   pop(value: V): Update<S, V[]>,
@@ -161,7 +161,7 @@ class ObjectUpdaterImpl<S extends State, B extends Obj, T extends Record<string,
   }
 
   select(keys: string[]) {
-    return new ObjectUpdaterImpl(this._state, [...this._path, ...keys]) as any // TODO!!!!!
+    return createHandler(this._state, [...this._path, ...keys], ObjectUpdaterImpl, ArrayUpdaterImpl)
   }
 
   map<K extends keyof T>(key: K, mapper: (value: T[K]) => T[K]): Update<S, T> {
@@ -183,7 +183,7 @@ class ArrayUpdaterImpl<S extends State, B extends V[], V> implements ArrayUpdate
   }
   
   select(keys: string[]) {
-    return new ArrayUpdaterImpl(this._state, [...this._path, ...keys]) as any // TODO!!!!!!!!!!
+    return createHandler(this._state, [...this._path, ...keys], ObjectUpdaterImpl, ArrayUpdaterImpl)
   }
 
   push(newItem: V): Update<S, V[]> {
@@ -259,9 +259,11 @@ const ArrayOps = {
     return (arr: V[]) => {
       const idx = arr.findIndex(pred)
 
-      return idx >= 0
-        ? arr.splice(idx, 1)
-        : arr
+      return idx === -1
+        ? arr
+        : idx === 0
+          ? arr.slice(1)
+          : arr.slice(0, idx).concat(arr.slice(idx + 1))
     }
   },
  
@@ -269,7 +271,9 @@ const ArrayOps = {
     return (arr: V[]) => {
       for (let idx = arr.length - 1; idx >= 0; --idx) {
         if (pred(arr[idx], idx)) {
-          return arr.splice(idx, 1)
+          return idx === 0
+            ? arr.slice(1)
+            : arr.slice(0, idx).concat(arr.slice(idx + 1))
         }
       }
 
@@ -292,7 +296,7 @@ function createHandler(base: any, path: any[], ObjectHandlerClass: any, ArrayHan
 
     for (let i = 0; i < path.length; ++i) {
       const key = path[i]
-      current = base[key]
+      current = current[key]
 
       if (!current) {
         break
@@ -319,44 +323,61 @@ function createUpdate<S extends State, T>(
   }
 }
 
-function performUpdates<S extends State>(state: S, updates: { path: string[], mapper: (value: any) => any }[]) {
-  let state2 = { ...state }
-  let modifiedPaths: any = updates.length > 1 ? {} : null // TODO
+function performUpdates<S extends State>(
+  state: S,
+  updates: { path: string[], mapper: <T>(value: T) => T }[]
+): S {
+  let state2 = shallowCopy(state)
+  
+  let modifiedPaths: Record<string, boolean> | null =
+    updates.length > 1 ? {} : null
 
   updates.forEach(({ path, mapper }) => {
     let pathAsString = ''
-    let substate = state2 // TODO - do we really need variable substate?
-    let substate2: any = state2
-    let parent2 = null
+    let substate: any = state2
+    let parent = null
 
     path.forEach((key, idx) => {
       pathAsString = idx === 0 ? key : '@' + key
 
       if (!modifiedPaths || !hasOwnProp(modifiedPaths, pathAsString)) {
-        substate2[key] = { ...(substate as any)[key] } // TODO!!!!!
+        substate[key] = shallowCopy(substate[key])
         
         if (modifiedPaths) {
           modifiedPaths[pathAsString] = true
         }
       }
 
-      parent2 = substate2
-      substate = (substate as any)[key] // TODO!!!!!
-      substate2 = substate2[key]
+      parent = substate
+      substate = substate[key]
     })
  
-    if (parent2) {
-      (parent2 as any)[path[path.length - 1]] = mapper(substate2)
+    if (parent) {
+      (parent as any)[path[path.length - 1]] = mapper(substate)
     } else {
-      state2 = mapper(substate2)
+      state2 = mapper(substate)
     }
   })
 
-  return state2
+  return state2 as S
 }
 
-function performUpdate<S extends State>(state: S, path: string[], mapper: (value: any) => any): S {
+function performUpdate<S extends State>(
+  state: S,
+  path: string[],
+  mapper: (value: any) => any
+): S {
   return performUpdates(state, [{ path, mapper }])
+}
+
+function shallowCopy<T>(it: T): T {
+  if (Array.isArray(it)) {
+    return [...it] as any as T
+  } else if (it && typeof it === 'object') {
+    return { ...it }
+  }
+
+  return it
 }
 
 function hasOwnProp(obj: any, propName: string) {
