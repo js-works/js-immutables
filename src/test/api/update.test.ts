@@ -33,6 +33,19 @@ describe('update', () => {
   })
 
   it('should perform a "set" operation properly on nested objects', () => {
+    const result = update(state, 'login').set('isAdmin', false)
+    
+    expect(result)
+      .to.eql({
+        ...state,
+        login: {
+          ...state.login,
+          isAdmin: false
+        }
+      })
+  })
+
+  it('should perform a "set" operation properly on nested objects (using method `path`)', () => {
     const result = update(state).path('login').set('isAdmin', false)
     
     expect(result)

@@ -1,11 +1,15 @@
 export default update
 
-function update<S extends State>(state: S): ModifierType<S, S, S> 
+function update<S extends State>(state: S): ModifierType<S, S, S>
+function update<S extends ArrState<V>, V>(state: S, idx: number): ModifierType<S, V, V> 
+function update<S extends ObjState, K extends keyof S>(state: S, key: K): ModifierType<S, S[K], S[K]> 
 function update<S extends State>(state: S, getUpdates: (select: UpdateSelector<S, S>) => Update<S, any>[]): S 
 function update<S extends State>(state: S, generateUpdates: (select: UpdateSelector<S, S>) => Generator<Update<S, any>>): S 
 
 function update<S extends State>(state: S, sndArg?: any): any {
-  if (typeof sndArg === 'function') {
+  if (typeof sndArg === 'string') {
+    return update(state).path(sndArg as keyof S)
+  } else if (typeof sndArg === 'function') {
     const select = (...path: string[]) => {
       return createHandler(state, path, ObjectUpdaterImpl, ArrayUpdaterImpl)
     }
@@ -244,7 +248,9 @@ class ArrayUpdaterImpl<S extends State, B extends V[], V> implements ArrayUpdate
 // --- shared types --------------------------------------------------
 
 type Obj = Record<string, any>
-type State = Record<string, any> | any[]
+type ObjState = Record<string, any>
+type ArrState<V = any> = V[]
+type State = ObjState | ArrState
 
 type IfNeverThenNull<T> = T extends never ? null : T
 
