@@ -73,6 +73,6 @@
     "all": true
   },
   "dependencies": {
-    "immer": "^6.0.5"
+    "immer": "^8.0.1"
   }
 }
